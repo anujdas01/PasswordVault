@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme='dark'] {
+  --color-bg: #0f1115;
+  --color-surface: #171a21;
+  --color-surface-alt: #1f242e;
+  --color-border: #2a303c;
+  --color-text: #e6e8ec;
+  --color-muted: #8a93a3;
+  --color-primary: #4f7cff;
+  --color-accent: #38bdf8;
+  --color-positive: #2e9e5b;
+  --color-negative: #d64545;
+}
+
+[data-theme='light'] {
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-surface-alt: #eef0f4;
+  --color-border: #d9dde5;
+  --color-text: #1b2027;
+  --color-muted: #6b7280;
+  --color-primary: #3b5bdb;
+  --color-accent: #0ea5b7;
+  --color-positive: #1f9d55;
+  --color-negative: #d64545;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 60%, transparent);
+  }
+  .btn-primary {
+    @apply btn bg-primary text-white hover:brightness-110;
+  }
+  .btn-secondary {
+    @apply btn border border-border bg-surface hover:bg-surfaceAlt;
+  }
+  .btn-danger {
+    @apply btn bg-negative text-white hover:brightness-110;
+  }
+  .input {
+    @apply w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none;
+  }
+  .input:focus {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 50%, transparent);
+  }
+  .card {
+    @apply rounded-lg border border-border bg-surface p-4;
+  }
+  .tooltip {
+    @apply relative;
+  }
+  .tooltip:hover::after {
+    content: attr(data-tooltip);
+    @apply absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-text px-2 py-1 text-xs text-bg;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast-enter {
+    animation: toast-in 0.2s ease-out;
+  }
+  @keyframes toast-in {
+    from {
+      transform: translateY(8px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 6px;
+}
