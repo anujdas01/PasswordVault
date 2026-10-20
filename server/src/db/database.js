@@ -7,7 +7,7 @@ function utcnow() {
 
 function tableObj(row) {
   // node:sqlite returns null-prototype objects; return a plain copy.
-  if (!row) return null;
+  if (!row) {return null;}
   return { ...row };
 }
 
@@ -93,9 +93,9 @@ export class Store {
 
   getOrCreateTag(name) {
     name = String(name).trim();
-    if (!name) throw new Error('tag name is empty');
+    if (!name) {throw new Error('tag name is empty');}
     const row = this.db.prepare('SELECT id FROM tags WHERE name = ?').get(name);
-    if (row) return [Number(row.id), false];
+    if (row) {return [Number(row.id), false];}
     const r = this.db.prepare('INSERT INTO tags (name, created_at) VALUES (?, ?)').run(name, utcnow());
     return [Number(r.lastInsertRowid), true];
   }
@@ -190,7 +190,7 @@ export class Store {
       const ins = this.db.prepare(
         'INSERT OR IGNORE INTO password_tags (password_id, tag_id) VALUES (?, ?)'
       );
-      for (const tagId of tagIds) ins.run(pwdId, tagId);
+      for (const tagId of tagIds) {ins.run(pwdId, tagId);}
       this.db.exec('COMMIT');
     } catch (err) {
       this.db.exec('ROLLBACK');
@@ -257,7 +257,7 @@ export class Store {
   listAttachments(noteId) {
     return this.db
       .prepare(
-        'SELECT id, note_id, filename, mime_type, size, created_at FROM attachments WHERE note_id = ? ORDER BY created_at'
+        'SELECT id, note_id, filename, mime_type, size, encrypted_data, created_at FROM attachments WHERE note_id = ? ORDER BY created_at'
       )
       .all(noteId)
       .map(tableObj);
@@ -295,7 +295,7 @@ export class Store {
     ];
     this.db.exec('BEGIN');
     try {
-      for (const t of tables) this.db.prepare(`DELETE FROM ${t}`).run();
+      for (const t of tables) {this.db.prepare(`DELETE FROM ${t}`).run();}
       this.db
         .prepare(
           "DELETE FROM sqlite_sequence WHERE name IN ('passwords','totp_entries','notes','attachments','categories','tags','audit_log')"
@@ -321,7 +321,7 @@ export class Store {
     ];
     this.db.exec('BEGIN');
     try {
-      for (const t of tables) this.db.prepare(`DELETE FROM ${t}`).run();
+      for (const t of tables) {this.db.prepare(`DELETE FROM ${t}`).run();}
       this.db.prepare('DELETE FROM vault_config WHERE id = 1').run();
       this.db.prepare('DELETE FROM sqlite_sequence').run();
       this.db.exec('COMMIT');
@@ -364,7 +364,7 @@ export class Store {
       where.push('created_at <= ?');
       params.push(toTs);
     }
-    if (where.length) sql += ' WHERE ' + where.join(' AND ');
+    if (where.length) {sql += ' WHERE ' + where.join(' AND ');}
     sql += ' ORDER BY created_at DESC LIMIT 1000';
     return this.db.prepare(sql).all(...params).map(tableObj);
   }

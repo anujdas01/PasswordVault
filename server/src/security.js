@@ -47,8 +47,8 @@ export class SessionManager {
   }
 
   validate(token) {
-    if (!token || !this.sessions.has(token)) return false;
-    if (this.vaultKey === null) return false;
+    if (!token || !this.sessions.has(token)) {return false;}
+    if (this.vaultKey === null) {return false;}
     if (this.autoLockMinutes > 0) {
       const last = this.sessions.get(token);
       if (Date.now() / 1000 - last > this.autoLockMinutes * 60) {

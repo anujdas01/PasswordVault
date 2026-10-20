@@ -9,7 +9,7 @@ export function totpRouter({ store, sessions }) {
 
   router.get('/', unlock, (req, res) => {
     const result = store.listTotp().map((r) => {
-      const { encrypted_secret, ...item } = r;
+      const { encrypted_secret: _encrypted_secret, ...item } = r;
       return item;
     });
     res.json(result);
@@ -21,8 +21,8 @@ export function totpRouter({ store, sessions }) {
     let name = typeof body.name === 'string' ? body.name : '';
     let issuer = typeof body.issuer === 'string' ? body.issuer : '';
     let account = typeof body.account === 'string' ? body.account : '';
-    let period = body.period != null ? Number(body.period) : 30;
-    let digits = body.digits != null ? Number(body.digits) : 6;
+    let period = body.period !== null && body.period !== undefined ? Number(body.period) : 30;
+    let digits = body.digits !== null && body.digits !== undefined ? Number(body.digits) : 6;
     let algorithm = String(body.algorithm || 'SHA1').toUpperCase();
 
     if (secret.toLowerCase().startsWith('otpauth://')) {
@@ -51,18 +51,18 @@ export function totpRouter({ store, sessions }) {
     if (!Number.isInteger(period) || period <= 0) {
       throw new HttpError(400, 'invalid period');
     }
-    if (!name.trim()) throw new HttpError(400, 'name is required');
+    if (!name.trim()) {throw new HttpError(400, 'name is required');}
 
     const encrypted = vaultCrypto.encryptBytes(req.vaultKey, secretBytes);
     const totpId = store.createTotp(name, encrypted, issuer, account, period, digits, algorithm);
-    const { encrypted_secret, ...item } = store.getTotp(totpId);
+    const { encrypted_secret: _encrypted_secret, ...item } = store.getTotp(totpId);
     res.status(201).json(item);
   });
 
   router.get('/:totp_id/code', unlock, (req, res) => {
     const totpId = Number(req.params.totp_id);
     const row = store.getTotp(totpId);
-    if (!row) throw new HttpError(404, 'Not found');
+    if (!row) {throw new HttpError(404, 'Not found');}
     let code;
     try {
       const secret = vaultCrypto.decryptBytes(req.vaultKey, row.encrypted_secret);
@@ -85,7 +85,7 @@ export function totpRouter({ store, sessions }) {
 
   router.delete('/:totp_id', unlock, (req, res) => {
     const totpId = Number(req.params.totp_id);
-    if (!store.getTotp(totpId)) throw new HttpError(404, 'Not found');
+    if (!store.getTotp(totpId)) {throw new HttpError(404, 'Not found');}
     store.deleteTotp(totpId);
     res.json({ ok: true });
   });

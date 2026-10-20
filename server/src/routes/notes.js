@@ -34,7 +34,7 @@ export function notesRouter({ store, sessions }) {
   router.get('/:note_id', unlock, (req, res) => {
     const noteId = Number(req.params.note_id);
     const row = store.getNote(noteId);
-    if (!row) throw new HttpError(404, 'Not found');
+    if (!row) {throw new HttpError(404, 'Not found');}
     const payload = rowToPayload(store, row);
     try {
       payload.content = vaultCrypto.decryptText(req.vaultKey, row.encrypted_content);
@@ -47,8 +47,8 @@ export function notesRouter({ store, sessions }) {
   router.post('/', unlock, (req, res) => {
     const body = req.body || {};
     const title = typeof body.title === 'string' ? body.title.trim() : '';
-    if (!title) throw new HttpError(400, 'title is required');
-    if (title.length > 512) throw new HttpError(400, 'title too long');
+    if (!title) {throw new HttpError(400, 'title is required');}
+    if (title.length > 512) {throw new HttpError(400, 'title too long');}
     const content = typeof body.content === 'string' ? body.content : '';
     const encrypted = vaultCrypto.encrypt(req.vaultKey, content);
     const noteId = store.createNote(title, encrypted);
@@ -57,10 +57,10 @@ export function notesRouter({ store, sessions }) {
 
   router.put('/:note_id', unlock, (req, res) => {
     const noteId = Number(req.params.note_id);
-    if (!store.getNote(noteId)) throw new HttpError(404, 'Not found');
+    if (!store.getNote(noteId)) {throw new HttpError(404, 'Not found');}
     const body = req.body || {};
     const title = typeof body.title === 'string' ? body.title.trim() : '';
-    if (!title) throw new HttpError(400, 'title is required');
+    if (!title) {throw new HttpError(400, 'title is required');}
     const content = typeof body.content === 'string' ? body.content : '';
     const encrypted = vaultCrypto.encrypt(req.vaultKey, content);
     store.updateNote(noteId, title, encrypted);
@@ -69,7 +69,7 @@ export function notesRouter({ store, sessions }) {
 
   router.delete('/:note_id', unlock, (req, res) => {
     const noteId = Number(req.params.note_id);
-    if (!store.getNote(noteId)) throw new HttpError(404, 'Not found');
+    if (!store.getNote(noteId)) {throw new HttpError(404, 'Not found');}
     store.deleteNote(noteId);
     res.json({ ok: true });
   });

@@ -23,8 +23,8 @@ export function categoriesRouter({ store, sessions }) {
   router.post('/', unlock, (req, res) => {
     const body = req.body || {};
     const name = typeof body.name === 'string' ? body.name.trim() : '';
-    if (!name) throw new HttpError(400, 'name is required');
-    if (name.length > 128) throw new HttpError(400, 'name too long');
+    if (!name) {throw new HttpError(400, 'name is required');}
+    if (name.length > 128) {throw new HttpError(400, 'name too long');}
     const icon = typeof body.icon === 'string' ? body.icon : '📁';
     const color = typeof body.color === 'string' ? body.color : '#888';
     const sortOrder = typeof body.sort_order === 'number' ? body.sort_order : 0;
@@ -34,10 +34,10 @@ export function categoriesRouter({ store, sessions }) {
 
   router.put('/:cat_id', unlock, (req, res) => {
     const catId = Number(req.params.cat_id);
-    if (!store.getCategory(catId)) throw new HttpError(404, 'Not found');
+    if (!store.getCategory(catId)) {throw new HttpError(404, 'Not found');}
     const body = req.body || {};
     const name = typeof body.name === 'string' ? body.name.trim() : '';
-    if (!name) throw new HttpError(400, 'name is required');
+    if (!name) {throw new HttpError(400, 'name is required');}
     const icon = typeof body.icon === 'string' ? body.icon : '📁';
     const color = typeof body.color === 'string' ? body.color : '#888';
     const sortOrder = typeof body.sort_order === 'number' ? body.sort_order : 0;
@@ -47,7 +47,7 @@ export function categoriesRouter({ store, sessions }) {
 
   router.delete('/:cat_id', unlock, (req, res) => {
     const catId = Number(req.params.cat_id);
-    if (!store.getCategory(catId)) throw new HttpError(404, 'Not found');
+    if (!store.getCategory(catId)) {throw new HttpError(404, 'Not found');}
     store.deleteCategory(catId);
     res.json({ ok: true });
   });

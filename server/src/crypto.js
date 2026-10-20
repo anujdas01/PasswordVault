@@ -123,36 +123,36 @@ export function generatePassword({
   use_symbols = true,
   exclude_ambiguous = false,
 } = {}) {
-  if (length < 1) throw new Error('length must be >= 1');
+  if (length < 1) {throw new Error('length must be >= 1');}
   length = Math.min(length, 128);
 
   const pools = [];
-  if (use_lower) pools.push(_LOWER);
-  if (use_upper) pools.push(_UPPER);
-  if (use_digits) pools.push(_DIGITS);
-  if (use_symbols) pools.push(_SYMBOLS);
-  if (pools.length === 0) throw new Error('at least one character set is required');
+  if (use_lower) {pools.push(_LOWER);}
+  if (use_upper) {pools.push(_UPPER);}
+  if (use_digits) {pools.push(_DIGITS);}
+  if (use_symbols) {pools.push(_SYMBOLS);}
+  if (pools.length === 0) {throw new Error('at least one character set is required');}
 
   const clean = (pool) =>
     exclude_ambiguous ? pool.split('').filter((c) => !_AMBIGUOUS.includes(c)).join('') : pool;
   const cleanedPools = pools.map(clean);
   const charset = cleanedPools.join('');
-  if (!charset) throw new Error('character set is empty after filtering');
+  if (!charset) {throw new Error('character set is empty after filtering');}
 
   const chars = [];
   for (const pool of cleanedPools) {
-    if (pool) chars.push(_randChar(pool));
+    if (pool) {chars.push(_randChar(pool));}
   }
-  while (chars.length < length) chars.push(_randChar(charset));
+  while (chars.length < length) {chars.push(_randChar(charset));}
 
   secureShuffle(chars);
   return chars.join('');
 }
 
 export function estimateEntropy(password) {
-  if (!password) return 0.0;
+  if (!password) {return 0.0;}
   const freq = {};
-  for (const ch of password) freq[ch] = (freq[ch] || 0) + 1;
+  for (const ch of password) {freq[ch] = (freq[ch] || 0) + 1;}
   const length = password.length;
   let perChar = 0.0;
   for (const count of Object.values(freq)) {
@@ -163,13 +163,22 @@ export function estimateEntropy(password) {
 }
 
 export function strengthRating(password) {
-  if (!password) return ['Empty', 0];
+  if (!password) {return ['Empty', 0];}
   const entropy = estimateEntropy(password);
-  if (password.length < 8) return ['Very Weak', 1];
-  if (entropy < 35) return ['Weak', 1];
-  if (entropy < 60) return ['Fair', 2];
-  if (entropy < 90) return ['Strong', 3];
+  if (password.length < 8) {return ['Very Weak', 1];}
+  if (entropy < 35) {return ['Weak', 1];}
+  if (entropy < 60) {return ['Fair', 2];}
+  if (entropy < 90) {return ['Strong', 3];}
   return ['Very Strong', 4];
+}
+
+export function requireStrength(password, minRating) {
+  const [, rating] = strengthRating(password);
+  if (rating < minRating) {
+    const [label] = strengthRating(password);
+    throw new Error(`Password is too weak (${label}, rating ${rating}); minimum rating ${minRating} required`);
+  }
+  return rating;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,32 +192,32 @@ const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 export function base32Decode(secret) {
   let cleaned = '';
   for (const ch of secret.toUpperCase()) {
-    if (BASE32_ALPHABET.includes(ch)) cleaned += ch;
+    if (BASE32_ALPHABET.includes(ch)) {cleaned += ch;}
   }
-  if (!cleaned) throw new CryptoError('invalid base32 secret');
+  if (!cleaned) {throw new CryptoError('invalid base32 secret');}
 
   const bits = [];
   for (const ch of cleaned) {
     const val = BASE32_ALPHABET.indexOf(ch);
-    for (let i = 4; i >= 0; i--) bits.push((val >> i) & 1);
+    for (let i = 4; i >= 0; i--) {bits.push((val >> i) & 1);}
   }
   // Only whole bytes from complete 8-bit groups; leftover bits are discarded.
   const byteCount = Math.floor(bits.length / 8);
   const bytes = [];
   for (let i = 0; i < byteCount; i++) {
     let byte = 0;
-    for (let j = 0; j < 8; j++) byte = (byte << 1) | bits[i * 8 + j];
+    for (let j = 0; j < 8; j++) {byte = (byte << 1) | bits[i * 8 + j];}
     bytes.push(byte);
   }
-  if (bytes.length === 0) throw new CryptoError('invalid base32 secret');
+  if (bytes.length === 0) {throw new CryptoError('invalid base32 secret');}
   return Buffer.from(bytes);
 }
 
 export function totpCode(secretBytes, { period = 30, digits = 6, algorithm = 'SHA1', at = null } = {}) {
-  if (at === null) at = Math.floor(Date.now() / 1000);
+  if (at === null) {at = Math.floor(Date.now() / 1000);}
   const algo = _TOTP_HASH[String(algorithm).toUpperCase()];
-  if (!algo) throw new CryptoError(`unsupported TOTP algorithm: ${algorithm}`);
-  if (digits < 6 || digits > 8) throw new Error('TOTP digits must be 6-8');
+  if (!algo) {throw new CryptoError(`unsupported TOTP algorithm: ${algorithm}`);}
+  if (digits < 6 || digits > 8) {throw new Error('TOTP digits must be 6-8');}
 
   const counter = Math.floor(at / period);
   const msg = Buffer.alloc(8);
@@ -247,7 +256,7 @@ export function parseOtpauthUri(uri) {
     throw new CryptoError('only otpauth://totp URIs are supported');
   }
   const label = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
-  if (!label) throw new CryptoError('missing label in otpauth URI');
+  if (!label) {throw new CryptoError('missing label in otpauth URI');}
 
   let account = label;
   let issuerFromLabel = null;
@@ -263,7 +272,7 @@ export function parseOtpauthUri(uri) {
   });
 
   const secret = query.secret;
-  if (!secret) throw new CryptoError('otpauth URI missing secret');
+  if (!secret) {throw new CryptoError('otpauth URI missing secret');}
 
   const issuer = query.issuer || issuerFromLabel || 'Unknown';
   const _intQuery = (key, def) => {
@@ -275,9 +284,9 @@ export function parseOtpauthUri(uri) {
   const digits = _intQuery('digits', 6);
   const algorithm = (query.algorithm || 'SHA1').toUpperCase();
 
-  if (period <= 0) throw new CryptoError('invalid period');
-  if (digits < 6 || digits > 8) throw new CryptoError('invalid digits');
-  if (!_TOTP_HASH[algorithm]) throw new CryptoError(`unsupported algorithm: ${algorithm}`);
+  if (period <= 0) {throw new CryptoError('invalid period');}
+  if (digits < 6 || digits > 8) {throw new CryptoError('invalid digits');}
+  if (!_TOTP_HASH[algorithm]) {throw new CryptoError(`unsupported algorithm: ${algorithm}`);}
 
   return {
     account: account || 'Unknown',

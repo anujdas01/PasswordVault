@@ -1,5 +1,5 @@
 node_modules/
-client/dist/
+web/dist/
 server/vault.db
 server/vault.db-shm
 server/vault.db-wal

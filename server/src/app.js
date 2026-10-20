@@ -2,9 +2,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import { fileURLToPath } from 'node:url';
 
-import { DB_PATH, WEB_DIR, CLIENT_DIST } from './config.js';
+import { DB_PATH, WEB_DIST, TRUST_PROXY, ENFORCE_HTTPS } from './config.js';
 import { Store } from './db/database.js';
 import { SessionManager, LoginRateLimiter } from './security.js';
 import { HttpError } from './utils/httpError.js';
@@ -20,8 +19,6 @@ import { breachRouter } from './routes/breach.js';
 import { auditRouter } from './routes/audit.js';
 import { importExportRouter } from './routes/import_export.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 export function createApp() {
   const store = new Store(DB_PATH);
   const sessions = new SessionManager();
@@ -29,19 +26,35 @@ export function createApp() {
 
   const app = express();
   app.disable('x-powered-by');
+  app.set('trust proxy', TRUST_PROXY);
 
   app.state = { store, sessions, rateLimiter };
 
   app.use(cookieParser());
   app.use(express.json({ limit: '2mb' }));
 
+  // HTTPS enforcement (when configured behind a TLS-terminating proxy).
+  if (ENFORCE_HTTPS) {
+    app.use((req, res, next) => {
+      if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+        return next();
+      }
+      return res.status(426).json({ detail: 'HTTPS required' });
+    });
+  }
+
   app.use((req, res, next) => {
     res.setHeader('Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'");
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'");
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'no-referrer');
     next();
+  });
+
+  // CSRF token endpoint (frontend reads the pv_csrf cookie and sends x-csrf-token header).
+  app.get('/api/csrf-token', (_req, res) => {
+    res.json({ ok: true });
   });
 
   const ctx = { store, sessions, rateLimiter, app };
@@ -60,20 +73,12 @@ export function createApp() {
   api.use('/', importExportRouter(ctx));
   app.use('/api', api);
 
-  // Static / SPA serving. Prefer client/dist when built, else web/ (legacy).
-  const webStatic = path.resolve(__dirname, '..', '..', WEB_DIR, 'static');
-  const webIndex = path.resolve(__dirname, '..', '..', WEB_DIR, 'index.html');
-  if (fs.existsSync(path.join(CLIENT_DIST, 'index.html'))) {
-    app.use(express.static(CLIENT_DIST));
+  // Serve the built frontend when available.
+  if (fs.existsSync(path.join(WEB_DIST, 'index.html'))) {
+    app.use(express.static(WEB_DIST));
     app.use((req, res, next) => {
-      if (req.path.startsWith('/api/')) return next();
-      res.sendFile(path.join(CLIENT_DIST, 'index.html'));
-    });
-  } else if (fs.existsSync(webStatic) && fs.existsSync(webIndex)) {
-    app.use('/static', express.static(webStatic));
-    app.use((req, res, next) => {
-      if (req.path.startsWith('/api/')) return next();
-      res.sendFile(webIndex);
+      if (req.path.startsWith('/api/')) {return next();}
+      res.sendFile(path.join(WEB_DIST, 'index.html'));
     });
   }
 
@@ -85,7 +90,7 @@ export function createApp() {
   // Final fallback for any non-API path (609: no page is fine in API-only mode).
 
   // Error handler.
-  app.use((err, req, res, next) => {
+  app.use((err, req, res, _next) => {
     if (err instanceof HttpError) {
       return res.status(err.status).json({ detail: err.message });
     }

@@ -3,6 +3,7 @@ import * as vaultCrypto from '../crypto.js';
 import { clientIp } from '../utils/ip.js';
 import { requireUnlocked } from '../middleware/auth.js';
 import { HttpError } from '../utils/httpError.js';
+import { string, array } from '../validation.js';
 
 const rowsToPayloads = (store, rows) => {
   return rows.map((r) => ({
@@ -38,8 +39,8 @@ export function passwordsRouter({ store, sessions }) {
   router.get('/', unlock, (req, res) => {
     const rows = store.listPasswords(
       typeof req.query.q === 'string' ? req.query.q : '',
-      req.query.category != null ? Number(req.query.category) : null,
-      req.query.tag != null ? Number(req.query.tag) : null
+      req.query.category !== null && req.query.category !== undefined ? Number(req.query.category) : null,
+      req.query.tag !== null && req.query.tag !== undefined ? Number(req.query.tag) : null
     );
     res.json(rowsToPayloads(store, rows));
   });
@@ -47,7 +48,7 @@ export function passwordsRouter({ store, sessions }) {
   router.get('/:pwd_id', unlock, (req, res) => {
     const pwdId = Number(req.params.pwd_id);
     const row = store.getPassword(pwdId);
-    if (!row) throw new HttpError(404, 'Not found');
+    if (!row) {throw new HttpError(404, 'Not found');}
     const payload = rowsToPayloads(store, [row])[0];
     try {
       payload.password = vaultCrypto.decryptText(req.vaultKey, row.encrypted_password);
@@ -60,19 +61,17 @@ export function passwordsRouter({ store, sessions }) {
 
   router.post('/', unlock, (req, res) => {
     const body = req.body || {};
-    const title = typeof body.title === 'string' ? body.title.trim() : '';
-    if (!title) throw new HttpError(400, 'title is required');
-    if (title.length > 512) throw new HttpError(400, 'title too long');
-    const username = typeof body.username === 'string' ? body.username : '';
-    const password = typeof body.password === 'string' ? body.password : '';
-    const url = typeof body.url === 'string' ? body.url : '';
-    const notes = typeof body.notes === 'string' ? body.notes : '';
-    const categoryId = body.category_id != null ? Number(body.category_id) : null;
-    const tags = Array.isArray(body.tags) ? body.tags : [];
+    const title = string(body.title, { field: 'title', max: 512 });
+    const username = string(body.username, { field: 'username', allowEmpty: true });
+    const password = string(body.password, { field: 'password', allowEmpty: true });
+    const url = string(body.url, { field: 'url', allowEmpty: true });
+    const notes = string(body.notes, { field: 'notes', allowEmpty: true });
+    const categoryId = body.category_id !== null && body.category_id !== undefined ? Number(body.category_id) : null;
+    const tags = array(body.tags, { field: 'tags', allowEmpty: true });
 
     const encrypted = vaultCrypto.encrypt(req.vaultKey, password);
     const pwdId = store.createPassword(title, username, encrypted, url, notes, categoryId);
-    if (tags.length) store.setPasswordTags(pwdId, resolveTags(store, tags));
+    if (tags.length) {store.setPasswordTags(pwdId, resolveTags(store, tags));}
     store.log('create', 'password', pwdId, `created '${title}'`, clientIp(req));
     res.status(201).json(rowsToPayloads(store, [store.getPassword(pwdId)])[0]);
   });
@@ -80,21 +79,19 @@ export function passwordsRouter({ store, sessions }) {
   router.put('/:pwd_id', unlock, (req, res) => {
     const pwdId = Number(req.params.pwd_id);
     const existing = store.getPassword(pwdId);
-    if (!existing) throw new HttpError(404, 'Not found');
+    if (!existing) { throw new HttpError(404, 'Not found'); }
     const body = req.body || {};
-    const title = typeof body.title === 'string' ? body.title.trim() : '';
-    if (!title) throw new HttpError(400, 'title is required');
-    if (title.length > 512) throw new HttpError(400, 'title too long');
-    const username = typeof body.username === 'string' ? body.username : '';
-    const password = typeof body.password === 'string' ? body.password : '';
-    const url = typeof body.url === 'string' ? body.url : '';
-    const notes = typeof body.notes === 'string' ? body.notes : '';
-    const categoryId = body.category_id != null ? Number(body.category_id) : null;
-    const tags = Array.isArray(body.tags) ? body.tags : [];
+    const title = string(body.title, { field: 'title', max: 512 });
+    const username = string(body.username, { field: 'username', allowEmpty: true });
+    const password = string(body.password, { field: 'password', allowEmpty: true });
+    const url = string(body.url, { field: 'url', allowEmpty: true });
+    const notes = string(body.notes, { field: 'notes', allowEmpty: true });
+    const categoryId = body.category_id !== null && body.category_id !== undefined ? Number(body.category_id) : null;
+    const tags = array(body.tags, { field: 'tags', allowEmpty: true });
 
     const encrypted = vaultCrypto.encrypt(req.vaultKey, password);
     store.updatePassword(pwdId, title, username, encrypted, url, notes, categoryId);
-    if (tags.length) store.setPasswordTags(pwdId, resolveTags(store, tags));
+    if (tags.length) {store.setPasswordTags(pwdId, resolveTags(store, tags));}
     store.log('update', 'password', pwdId, `updated '${title}'`, clientIp(req));
     res.json(rowsToPayloads(store, [store.getPassword(pwdId)])[0]);
   });
@@ -102,7 +99,7 @@ export function passwordsRouter({ store, sessions }) {
   router.delete('/:pwd_id', unlock, (req, res) => {
     const pwdId = Number(req.params.pwd_id);
     const existing = store.getPassword(pwdId);
-    if (!existing) throw new HttpError(404, 'Not found');
+    if (!existing) {throw new HttpError(404, 'Not found');}
     store.deletePassword(pwdId);
     store.log('delete', 'password', pwdId, `deleted '${existing.title}'`, clientIp(req));
     res.json({ ok: true });
@@ -111,7 +108,7 @@ export function passwordsRouter({ store, sessions }) {
   router.post('/:pwd_id/favorite', unlock, (req, res) => {
     const pwdId = Number(req.params.pwd_id);
     const existing = store.getPassword(pwdId);
-    if (!existing) throw new HttpError(404, 'Not found');
+    if (!existing) {throw new HttpError(404, 'Not found');}
     const favorite = !!(req.body && req.body.favorite);
     store.setFavorite(pwdId, favorite);
     store.log(

@@ -17,8 +17,8 @@ export function generatorRouter({ sessions }) {
   router.post('/', unlock, (req, res) => {
     const body = req.body || {};
     const length = num(body.length, 20);
-    if (!Number.isInteger(length) || length < 1) throw new HttpError(400, 'length must be >= 1');
-    if (length > 128) throw new HttpError(400, 'length must be <= 128');
+    if (!Number.isInteger(length) || length < 1) {throw new HttpError(400, 'length must be >= 1');}
+    if (length > 128) {throw new HttpError(400, 'length must be <= 128');}
     const count = num(body.count, 3);
     if (!Number.isInteger(count) || count < 1 || count > 10) {
       throw new HttpError(400, 'count must be 1-10');

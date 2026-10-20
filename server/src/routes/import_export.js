@@ -1,10 +1,15 @@
 import { Router } from 'express';
 import multer from 'multer';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
 import * as vaultCrypto from '../crypto.js';
 import { requireUnlocked } from '../middleware/auth.js';
 import { clientIp } from '../utils/ip.js';
 import { HttpError } from '../utils/httpError.js';
 import { resolveTags } from './passwords.js';
+import { UPLOAD_DIR, MAX_FILE_SIZE } from '../config.js';
+
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const EDGE_COLUMN_ALIASES = {
   name: 'title',
@@ -74,10 +79,10 @@ function parseCsv(text) {
       continue;
     }
     if (c === '\n' || c === '\r') {
-      if (c === '\r' && text[i + 1] === '\n') i++;
+      if (c === '\r' && text[i + 1] === '\n') {i++;}
       row.push(field);
       field = '';
-      if (row.some((x) => x !== '')) rows.push(row);
+      if (row.some((x) => x !== '')) {rows.push(row);}
       row = [];
       i++;
       continue;
@@ -87,14 +92,14 @@ function parseCsv(text) {
   }
   // last field/row
   row.push(field);
-  if (row.some((x) => x !== '')) rows.push(row);
+  if (row.some((x) => x !== '')) {rows.push(row);}
   return rows;
 }
 
 function parseCsvRecords(raw) {
-  if (raw.startsWith('\ufeff')) raw = raw.slice(1);
+  if (raw.startsWith('\ufeff')) {raw = raw.slice(1);}
   const rows = parseCsv(raw);
-  if (!rows.length) return [];
+  if (!rows.length) {return [];}
   const header = rows[0].map((h) => (h || '').trim().toLowerCase());
   const fieldMap = new Map(); // column index -> alias
   header.forEach((h, idx) => {
@@ -103,7 +108,7 @@ function parseCsvRecords(raw) {
 
   const valueAt = (row, alias) => {
     for (const [idx, mapped] of fieldMap) {
-      if (mapped === alias) return String(row[idx] !== undefined ? row[idx] : '').trim();
+      if (mapped === alias) {return String(row[idx] !== undefined ? row[idx] : '').trim();}
     }
     return '';
   };
@@ -113,7 +118,7 @@ function parseCsvRecords(raw) {
     const row = rows[r];
     const url = valueAt(row, 'url');
     const title = valueAt(row, 'title') || hostname(url);
-    if (!title && !url) continue;
+    if (!title && !url) {continue;}
     const tags = valueAt(row, 'tags');
     result.push({
       title,
@@ -130,20 +135,20 @@ function parseCsvRecords(raw) {
 
 function hostname(url) {
   url = (url || '').trim();
-  if (!url) return '';
+  if (!url) {return '';}
   let body = url;
   if (body.includes('://')) {
     const parts = body.split('://');
     body = parts[1];
   }
   const slashIdx = body.indexOf('/');
-  if (slashIdx !== -1) body = body.slice(0, slashIdx);
+  if (slashIdx !== -1) {body = body.slice(0, slashIdx);}
   const qIdx = body.indexOf('?');
-  if (qIdx !== -1) body = body.slice(0, qIdx);
+  if (qIdx !== -1) {body = body.slice(0, qIdx);}
   const hIdx = body.indexOf('#');
-  if (hIdx !== -1) body = body.slice(0, hIdx);
+  if (hIdx !== -1) {body = body.slice(0, hIdx);}
   body = body.replace(/[.:]+$/, '');
-  if (body.startsWith('www.')) body = body.slice(4);
+  if (body.startsWith('www.')) {body = body.slice(4);}
   return body;
 }
 
@@ -163,9 +168,9 @@ function parseJson(raw) {
 
 function resolveCategory(store, name) {
   name = (name || '').trim();
-  if (!name) return null;
+  if (!name) {return null;}
   for (const c of store.listCategories()) {
-    if (c.name === name) return c.id;
+    if (c.name === name) {return c.id;}
   }
   return store.createCategory(name, '📁', '#888', 0);
 }
@@ -173,7 +178,15 @@ function resolveCategory(store, name) {
 export function importExportRouter({ store, sessions }) {
   const router = Router();
   const unlock = requireUnlocked(sessions);
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: UPLOAD_DIR,
+      filename: (_req, file, cb) => {
+        cb(null, `${crypto.randomUUID()}-${file.originalname}`);
+      },
+    }),
+    limits: { fileSize: MAX_FILE_SIZE },
+  });
 
   router.get('/export', unlock, (req, res) => {
     const format = typeof req.query.format === 'string' ? req.query.format : 'json';
@@ -228,8 +241,20 @@ export function importExportRouter({ store, sessions }) {
   });
 
   router.post('/import', unlock, upload.single('file'), (req, res) => {
-    if (!req.file || !req.file.buffer) throw new HttpError(400, 'No file provided');
-    const raw = req.file.buffer.toString('utf-8');
+    if (!req.file || !req.file.path) {throw new HttpError(400, 'No file provided');}
+    if (!fs.existsSync(req.file.path)) {
+      throw new HttpError(400, 'Uploaded file not found');
+    }
+    let raw;
+    try {
+      raw = fs.readFileSync(req.file.path, 'utf-8');
+    } finally {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch {
+        // ignore cleanup errors
+      }
+    }
     let fmt = typeof req.query.format === 'string' ? req.query.format.toLowerCase() : '';
     if (!fmt) {
       const fn = req.file.originalname || '';
@@ -255,7 +280,7 @@ export function importExportRouter({ store, sessions }) {
     let skipped = 0;
     for (const rec of records) {
       const title = rec.title || '';
-      if (!title) continue;
+      if (!title) {continue;}
       if (skipDuplicates && existingTitles.has(title)) {
         skipped++;
         continue;
@@ -291,6 +316,6 @@ export function importExportRouter({ store, sessions }) {
 
 const csvField = (v) => {
   const s = String(v ?? '');
-  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  if (/[",\n\r]/.test(s)) {return '"' + s.replace(/"/g, '""') + '"';}
   return s;
 };
